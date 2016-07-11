@@ -7,16 +7,16 @@ type ParamsError struct {
 	Value string
 	Text  string
 }
-
+//错误接口
 func (p *ParamsError) Error() string {
 	return p.Text
 }
-
+//位置参数
 func (p *ParamsError) ErrUnknownParam() *ParamsError {
 	p.Text = fmt.Sprintf("未知的参数:%s", p.Key)
 	return p
 }
-
+//用于自定义参数
 func (p *ParamsError) CustomErrorText(text string) *ParamsError {
 	p.Text = text
 	return p

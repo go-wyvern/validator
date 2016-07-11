@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"fmt"
 )
-
+//定义一些规则
 func MustInt(k,v string) error{
 	_, err := strconv.Atoi(v)
 	if err != nil {
