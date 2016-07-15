@@ -22,6 +22,11 @@ func (p *ParamsError) CustomErrorText(text string) *ParamsError {
 	return p
 }
 
+func (p *ParamsError) ErrRequireParam() *ParamsError {
+	p.Text = fmt.Sprintf("%s是必须的参数", p.Key)
+	return p
+}
+
 func NewParamsError(k, v string) *ParamsError {
 	pErr := new(ParamsError)
 	pErr.Key = k

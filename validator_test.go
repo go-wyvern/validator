@@ -4,6 +4,7 @@ import (
 	"testing"
 	. "github.com/smartystreets/goconvey/convey"
 	"net/url"
+	"fmt"
 )
 
 func Test_Validate(t *testing.T) {
@@ -11,10 +12,16 @@ func Test_Validate(t *testing.T) {
 		params := url.Values{}
 		params.Set("test_key","1")
 
-		var defaultValidatorRules ValidatorRules = make(map[string][]Rule)
-		r:=new(Rule).SetValidateFunc(MustInt)
-		defaultValidatorRules.SetRule("test_key",r)
-		err:=Validate(params,defaultValidatorRules)
-		So(err,ShouldBeNil())
+		defaultValidatorRules:=NewValidator()
+		defaultValidatorRules.NewParam("test_key").Require(true).MustInt().MustValues([]interface{}{
+			1,
+			2,
+			3,
+		})
+		err:=Validator(params,defaultValidatorRules)
+		if err!=nil{
+			fmt.Println(err.Error())
+		}
+		//So(err,ShouldBeNil())
 	})
 }
