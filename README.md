@@ -1,6 +1,6 @@
 ## Package validator
 
-Package validator implements variable validations
+Package validator implements variable validations from Application Form
 
 ## Installation
 
