@@ -26,7 +26,7 @@ params.Set("foo","200")
 params.Set("bar","active")
 
 defaultValidator:=NewValidator()
-		defaultValidator.NewParam("foo").Require(true).MustInt().MustMax(256).MustMin(128)
+defaultValidator.NewParam("foo").Require(true).MustInt().MustMax(256).MustMin(128)
 defaultValidator.NewParam("bar").Require(true).MustInt().MustMax(10).MustMin(3).MustValues([]interface{}{
 	"active",
 	"unactive",
