@@ -17,11 +17,17 @@ type RuleSet interface {
 	MustValues([]interface{}, ...error) RuleSet
 }
 
+const (
+	ValidTag = "valid"
+	ValidateTag = "validate"
+)
+
 type ValidationFunc  func(string, interface{}, ...interface{}) error
 
 type Validate struct {
 	IgnoreUnknownParams bool
 	requireParams       []string
+	requireUrlParams    []string
 	ruleMap             map[string][]rule
 	valueMap            map[string]interface{}
 	typeMap             map[string]reflect.Kind
@@ -40,7 +46,8 @@ func NewValidator() *Validate {
 func Validator(params url.Values, v *Validate) error {
 	for _, p := range v.requireParams {
 		if _, ok := params[p]; !ok {
-			Perr := NewParamsError(p, params[p][0])
+			Perr := new(ParamsError)
+			Perr.Key = p
 			Perr.ErrRequireParam()
 			return Perr
 		}
@@ -54,9 +61,9 @@ func Validator(params url.Values, v *Validate) error {
 			for _, rule := range rules {
 				if rule.f != nil {
 					var err error
-					if valueInterface,ok:=v.valueMap[key];ok{
+					if valueInterface, ok := v.valueMap[key]; ok {
 						err = rule.f(key, valueInterface, rule.args...)
-					}else{
+					} else {
 						err = rule.f(key, value[0], rule.args...)
 					}
 					if err != nil {
@@ -77,10 +84,52 @@ func Validator(params url.Values, v *Validate) error {
 	return nil
 }
 
+func UrlValidator(params map[string]string, v *Validate) error {
+	for _, p := range v.requireUrlParams {
+		if _, ok := params[p]; !ok {
+			Perr := new(ParamsError)
+			Perr.Key = p
+			Perr.ErrRequireParam()
+			return Perr
+		}
+	}
+	for key, value := range params {
+		if rules, ok := v.ruleMap[key]; ok {
+			err := v.valueCheck(key, value)
+			if err != nil {
+				return err
+			}
+			for _, rule := range rules {
+				if rule.f != nil {
+					var err error
+					if valueInterface, ok := v.valueMap[key]; ok {
+						err = rule.f(key, valueInterface, rule.args...)
+					} else {
+						err = rule.f(key, value, rule.args...)
+					}
+					if err != nil {
+						if rule.errMsg != nil {
+							return rule.errMsg
+						} else {
+							return err
+						}
+					}
+				}
+			}
+		} else {
+			Perr := NewParamsError(key, value)
+			Perr.ErrUnknownParam()
+			return Perr
+		}
+	}
+	return nil
+}
+
 type ruleSet struct {
-	valid     *Validate
-	paramName string
-	setError  error
+	valid        *Validate
+	is_url_param bool
+	paramName    string
+	setError     error
 }
 
 type rule struct {
@@ -98,6 +147,58 @@ func (v *Validate) NewParam(paramName string) RuleSet {
 	r.valid.typeMap[paramName] = reflect.String
 	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
 	return r
+}
+
+func (v *Validate) NewUrlParam(paramName string) RuleSet {
+	r := new(ruleSet)
+	r.paramName = paramName
+	r.is_url_param = true
+	r.valid = v
+	r.valid.typeMap[paramName] = reflect.String
+	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
+	return r
+}
+
+func (v *Validate) ValuesToStruct(dst interface{}) error {
+	vl := reflect.ValueOf(dst)
+	if vl.Kind() != reflect.Ptr || vl.Elem().Kind() != reflect.Struct {
+		return NewTextError("interface must be a pointer to struct")
+	}
+	vl = vl.Elem()
+	t := vl.Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		if vl.Field(i).Kind() == reflect.Struct {
+			st := vl.Field(i).Type()
+			sv := vl.Field(i)
+			for j := 0; j < st.NumField(); j++ {
+				paramName := st.Field(j).Tag.Get(ValidTag)
+				if _, ok := v.valueMap[paramName]; ok {
+					switch v.typeMap[paramName]{
+					case reflect.Int:
+						sv.Field(j).SetInt(int64(v.valueMap[paramName].(int)))
+					case reflect.Bool:
+						sv.Field(j).SetBool(v.valueMap[paramName].(bool))
+					case reflect.String:
+						sv.Field(j).SetString(v.valueMap[paramName].(string))
+					}
+				}
+			}
+		} else {
+			paramName := t.Field(i).Tag.Get(ValidTag)
+			if _, ok := v.valueMap[paramName]; ok {
+				switch v.typeMap[paramName]{
+				case reflect.Int:
+					vl.Field(i).SetInt(int64(v.valueMap[paramName].(int)))
+				case reflect.Bool:
+					vl.Field(i).SetBool(v.valueMap[paramName].(bool))
+				case reflect.String:
+					vl.Field(i).SetString(v.valueMap[paramName].(string))
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (v *Validate) valueCheck(key, value string) error {
@@ -123,7 +224,12 @@ func (v *Validate) valueCheck(key, value string) error {
 				}
 				return fmt.Errorf("参数[%s]格式错误,参数值必须是bool类型", key)
 			}
+		case reflect.String:
+			v.valueMap[key] = value
+		default:
+
 		}
+
 	}
 	return nil
 }
@@ -137,7 +243,11 @@ func (r *ruleSet) Require(require bool) RuleSet {
 	}
 
 	if require {
-		r.valid.requireParams = append(r.valid.requireParams, r.paramName)
+		if r.is_url_param {
+			r.valid.requireUrlParams = append(r.valid.requireUrlParams, r.paramName)
+		} else {
+			r.valid.requireParams = append(r.valid.requireParams, r.paramName)
+		}
 	}
 	return r
 }
@@ -226,7 +336,7 @@ func (r *ruleSet) MustLengthRange(min, max int, errs ...error) RuleSet {
 	return r
 }
 
-func (r *ruleSet) MustValues(values []interface{},errs ...error) RuleSet {
+func (r *ruleSet) MustValues(values []interface{}, errs ...error) RuleSet {
 	if r.setError != nil {
 		return r
 	}

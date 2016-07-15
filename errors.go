@@ -34,3 +34,9 @@ func NewParamsError(k, v string) *ParamsError {
 	return pErr
 }
 
+func NewTextError(text string) *ParamsError {
+	pErr := new(ParamsError)
+	pErr.Text =text
+	return pErr
+}
+
