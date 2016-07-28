@@ -2,10 +2,13 @@ package validator
 
 import (
 	"fmt"
+	"net/url"
+	"time"
 )
+
 //定义一些规则
 
-func mustLength(k string, v interface{}, args ...interface{}) error {
+func mustLength(k string, v interface{}, params url.Values, args ...interface{}) error {
 	length := args[0]
 	if vString, ok := v.(string); ok {
 		if len(vString) != length.(int) {
@@ -19,7 +22,7 @@ func mustLength(k string, v interface{}, args ...interface{}) error {
 	return nil
 }
 
-func mustMin(k string, v interface{}, args ...interface{}) error {
+func mustMin(k string, v interface{}, params url.Values, args ...interface{}) error {
 	min := args[0]
 	if vInt, ok := v.(int); ok {
 		if vInt < min.(int) {
@@ -29,7 +32,7 @@ func mustMin(k string, v interface{}, args ...interface{}) error {
 	return nil
 }
 
-func mustMax(k string, v interface{}, args ...interface{}) error {
+func mustMax(k string, v interface{}, params url.Values, args ...interface{}) error {
 	max := args[0]
 	if vInt, ok := v.(int); ok {
 		if vInt > max.(int) {
@@ -39,7 +42,7 @@ func mustMax(k string, v interface{}, args ...interface{}) error {
 	return nil
 }
 
-func mustLengthRange(k string, v interface{}, args ...interface{}) error {
+func mustLengthRange(k string, v interface{}, params url.Values, args ...interface{}) error {
 	min := args[0]
 	max := args[1]
 	if vString, ok := v.(string); ok {
@@ -54,7 +57,7 @@ func mustLengthRange(k string, v interface{}, args ...interface{}) error {
 	return nil
 }
 
-func mustValues(k string, v interface{}, args ...interface{}) error {
+func mustValues(k string, v interface{}, params url.Values, args ...interface{}) error {
 	var allNotMatch bool = true
 	values := args[0]
 
@@ -66,6 +69,18 @@ func mustValues(k string, v interface{}, args ...interface{}) error {
 	}
 	if allNotMatch {
 		return fmt.Errorf("参数[%s]的长度必须在%v的范围中", k, values.([]interface{}))
+	}
+	return nil
+}
+
+func mustTimeLayout(k string, v interface{}, params url.Values, args ...interface{}) error {
+	layout := args[0]
+
+	if vString, ok := v.(string); ok {
+		_, err := time.Parse(layout.(string), vString)
+		if err != nil {
+			return fmt.Errorf("参数[%s]的格式必须是%v", k, layout)
+		}
 	}
 	return nil
 }

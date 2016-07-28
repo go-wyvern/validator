@@ -1,28 +1,31 @@
 package validator
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"strconv"
-	"fmt"
 )
 
 type RuleSet interface {
 	Require(bool) RuleSet
 	MustLength(int, ...error) RuleSet
 	MustInt(...error) RuleSet
+	MustBool(...error) RuleSet
 	MustMin(int, ...error) RuleSet
 	MustMax(int, ...error) RuleSet
 	MustLengthRange(int, int, ...error) RuleSet
 	MustValues([]interface{}, ...error) RuleSet
+	MustTimeLayout(string, ...error) RuleSet
+	MustFunc(ValidationFunc, []interface{}, ...error) RuleSet
 }
 
 const (
-	ValidTag = "valid"
+	ValidTag    = "valid"
 	ValidateTag = "validate"
 )
 
-type ValidationFunc  func(string, interface{}, ...interface{}) error
+type ValidationFunc func(string, interface{}, url.Values, ...interface{}) error
 
 type Validate struct {
 	IgnoreUnknownParams bool
@@ -62,9 +65,9 @@ func Validator(params url.Values, v *Validate) error {
 				if rule.f != nil {
 					var err error
 					if valueInterface, ok := v.valueMap[key]; ok {
-						err = rule.f(key, valueInterface, rule.args...)
+						err = rule.f(key, valueInterface, params, rule.args...)
 					} else {
-						err = rule.f(key, value[0], rule.args...)
+						err = rule.f(key, value[0], params, rule.args...)
 					}
 					if err != nil {
 						if rule.errMsg != nil {
@@ -103,9 +106,9 @@ func UrlValidator(params map[string]string, v *Validate) error {
 				if rule.f != nil {
 					var err error
 					if valueInterface, ok := v.valueMap[key]; ok {
-						err = rule.f(key, valueInterface, rule.args...)
+						err = rule.f(key, valueInterface, nil, rule.args...)
 					} else {
-						err = rule.f(key, value, rule.args...)
+						err = rule.f(key, value, nil, rule.args...)
 					}
 					if err != nil {
 						if rule.errMsg != nil {
@@ -174,7 +177,7 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 			for j := 0; j < st.NumField(); j++ {
 				paramName := st.Field(j).Tag.Get(ValidTag)
 				if _, ok := v.valueMap[paramName]; ok {
-					switch v.typeMap[paramName]{
+					switch v.typeMap[paramName] {
 					case reflect.Int:
 						sv.Field(j).SetInt(int64(v.valueMap[paramName].(int)))
 					case reflect.Bool:
@@ -187,7 +190,7 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 		} else {
 			paramName := t.Field(i).Tag.Get(ValidTag)
 			if _, ok := v.valueMap[paramName]; ok {
-				switch v.typeMap[paramName]{
+				switch v.typeMap[paramName] {
 				case reflect.Int:
 					vl.Field(i).SetInt(int64(v.valueMap[paramName].(int)))
 				case reflect.Bool:
@@ -214,15 +217,13 @@ func (v *Validate) valueCheck(key, value string) error {
 				return fmt.Errorf("参数[%s]格式错误,参数值必须是int类型", key)
 			}
 		case reflect.Bool:
-			if value == "true" {
-				v.valueMap[key] = true
-			} else if value == "false" {
-				v.valueMap[key] = false
-			} else {
+			if valueBool, err := strconv.ParseBool(value); err != nil {
 				if Terr, ok := v.typeErrMap[key]; ok {
 					return Terr
 				}
 				return fmt.Errorf("参数[%s]格式错误,参数值必须是bool类型", key)
+			} else {
+				v.valueMap[key] = valueBool
 			}
 		case reflect.String:
 			v.valueMap[key] = value
@@ -264,6 +265,21 @@ func (r *ruleSet) MustInt(errs ...error) RuleSet {
 		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
 	r.valid.typeMap[r.paramName] = reflect.Int
+	return r
+}
+
+func (r *ruleSet) MustBool(errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustBool")
+	}
+
+	if len(errs) == 1 {
+		r.valid.typeErrMap[r.paramName] = errs[0]
+	}
+	r.valid.typeMap[r.paramName] = reflect.Bool
 	return r
 }
 
@@ -350,5 +366,40 @@ func (r *ruleSet) MustValues(values []interface{}, errs ...error) RuleSet {
 		rl.errMsg = errs[0]
 	}
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
+	return r
+}
+
+func (r *ruleSet) MustTimeLayout(layout string, errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustLengthRange")
+	}
+	rl := new(rule)
+	rl.f = mustTimeLayout
+	rl.args = append(rl.args, layout)
+	if len(errs) == 1 {
+		rl.errMsg = errs[0]
+	}
+	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
+	return r
+}
+
+func (r *ruleSet) MustFunc(f ValidationFunc, args []interface{}, errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustLengthRange")
+	}
+	rl := new(rule)
+	rl.f = f
+	rl.args = args
+	if len(errs) == 1 {
+		rl.errMsg = errs[0]
+	}
+	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
+
 	return r
 }
