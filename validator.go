@@ -17,11 +17,13 @@ type RuleSet interface {
 	MustLengthRange(int, int, ...error) RuleSet
 	MustValues([]interface{}, ...error) RuleSet
 	MustTimeLayout(string, ...error) RuleSet
+	MustLessThan(string, ...error) RuleSet
+	MustLargeThan(string, ...error) RuleSet
 	MustFunc(ValidationFunc, []interface{}, ...error) RuleSet
 }
 
 const (
-	ValidTag    = "valid"
+	ValidTag = "valid"
 	ValidateTag = "validate"
 )
 
@@ -143,21 +145,27 @@ type rule struct {
 
 var _ RuleSet = new(ruleSet)
 
-func (v *Validate) NewParam(paramName string) RuleSet {
+func (v *Validate) NewParam(paramName string, value ... interface{}) RuleSet {
 	r := new(ruleSet)
 	r.paramName = paramName
 	r.valid = v
 	r.valid.typeMap[paramName] = reflect.String
+	if len(value) == 1 {
+		r.valid.valueMap[paramName] = value[0]
+	}
 	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
 	return r
 }
 
-func (v *Validate) NewUrlParam(paramName string) RuleSet {
+func (v *Validate) NewUrlParam(paramName string, value ... interface{}) RuleSet {
 	r := new(ruleSet)
 	r.paramName = paramName
 	r.is_url_param = true
 	r.valid = v
 	r.valid.typeMap[paramName] = reflect.String
+	if len(value) == 1 {
+		r.valid.valueMap[paramName] = value[0]
+	}
 	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
 	return r
 }
@@ -379,6 +387,40 @@ func (r *ruleSet) MustTimeLayout(layout string, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustTimeLayout
 	rl.args = append(rl.args, layout)
+	if len(errs) == 1 {
+		rl.errMsg = errs[0]
+	}
+	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
+	return r
+}
+
+func (r *ruleSet) MustLessThan(field string,errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustLessThan")
+	}
+	rl := new(rule)
+	rl.f = mustLessThan
+	rl.args = append(rl.args, field)
+	if len(errs) == 1 {
+		rl.errMsg = errs[0]
+	}
+	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
+	return r
+}
+
+func (r *ruleSet) MustLargeThan(field string,errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustLessThan")
+	}
+	rl := new(rule)
+	rl.f = mustLargeThan
+	rl.args = append(rl.args, field)
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}

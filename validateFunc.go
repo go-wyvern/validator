@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"time"
+	"strconv"
 )
 
 //定义一些规则
@@ -80,6 +81,34 @@ func mustTimeLayout(k string, v interface{}, params url.Values, args ...interfac
 		_, err := time.Parse(layout.(string), vString)
 		if err != nil {
 			return fmt.Errorf("参数[%s]的格式必须是%v", k, layout)
+		}
+	}
+	return nil
+}
+
+func mustLessThan(k string, v interface{}, params url.Values, args ...interface{}) error {
+	field := args[0]
+	if vInt, ok := v.(int); ok {
+		pInt, err := strconv.Atoi(params.Get(field.(string)))
+		if err != nil {
+			return err
+		}
+		if vInt >= pInt {
+			return fmt.Errorf("参数[%s]的值必须小于参数[%s]", k, field)
+		}
+	}
+	return nil
+}
+
+func mustLargeThan(k string, v interface{}, params url.Values, args ...interface{}) error {
+	field := args[0]
+	if vInt, ok := v.(int); ok {
+		pInt, err := strconv.Atoi(params.Get(field.(string)))
+		if err != nil {
+			return err
+		}
+		if vInt <= pInt {
+			return fmt.Errorf("参数[%s]的值必须大于参数[%s]", k, field)
 		}
 	}
 	return nil
