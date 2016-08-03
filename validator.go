@@ -35,6 +35,7 @@ type Validate struct {
 	requireUrlParams    []string
 	ruleMap             map[string][]rule
 	valueMap            map[string]interface{}
+	defaultValueMap     map[string]interface{}
 	typeMap             map[string]reflect.Kind
 	typeErrMap          map[string]error
 }
@@ -45,10 +46,12 @@ func NewValidator() *Validate {
 	v.ruleMap = make(map[string][]rule)
 	v.typeMap = make(map[string]reflect.Kind)
 	v.valueMap = make(map[string]interface{})
+	v.defaultValueMap = make(map[string]interface{})
 	return v
 }
 
 func Validator(params url.Values, v *Validate) error {
+	v.valueMap = make(map[string]interface{})
 	for _, p := range v.requireParams {
 		if _, ok := params[p]; !ok {
 			Perr := new(ParamsError)
@@ -151,7 +154,7 @@ func (v *Validate) NewParam(paramName string, value ... interface{}) RuleSet {
 	r.valid = v
 	r.valid.typeMap[paramName] = reflect.String
 	if len(value) == 1 {
-		r.valid.valueMap[paramName] = value[0]
+		r.valid.defaultValueMap[paramName] = value[0]
 	}
 	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
 	return r
@@ -164,7 +167,7 @@ func (v *Validate) NewUrlParam(paramName string, value ... interface{}) RuleSet 
 	r.valid = v
 	r.valid.typeMap[paramName] = reflect.String
 	if len(value) == 1 {
-		r.valid.valueMap[paramName] = value[0]
+		r.valid.defaultValueMap[paramName] = value[0]
 	}
 	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
 	return r
@@ -193,6 +196,15 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 					case reflect.String:
 						sv.Field(j).SetString(v.valueMap[paramName].(string))
 					}
+				} else if _, ok := v.defaultValueMap[paramName]; ok {
+					switch v.typeMap[paramName] {
+					case reflect.Int:
+						sv.Field(j).SetInt(int64(v.defaultValueMap[paramName].(int)))
+					case reflect.Bool:
+						sv.Field(j).SetBool(v.defaultValueMap[paramName].(bool))
+					case reflect.String:
+						sv.Field(j).SetString(v.defaultValueMap[paramName].(string))
+					}
 				}
 			}
 		} else {
@@ -205,6 +217,15 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 					vl.Field(i).SetBool(v.valueMap[paramName].(bool))
 				case reflect.String:
 					vl.Field(i).SetString(v.valueMap[paramName].(string))
+				}
+			} else if _, ok := v.defaultValueMap[paramName]; ok {
+				switch v.typeMap[paramName] {
+				case reflect.Int:
+					vl.Field(i).SetInt(int64(v.defaultValueMap[paramName].(int)))
+				case reflect.Bool:
+					vl.Field(i).SetBool(v.defaultValueMap[paramName].(bool))
+				case reflect.String:
+					vl.Field(i).SetString(v.defaultValueMap[paramName].(string))
 				}
 			}
 		}
@@ -394,7 +415,7 @@ func (r *ruleSet) MustTimeLayout(layout string, errs ...error) RuleSet {
 	return r
 }
 
-func (r *ruleSet) MustLessThan(field string,errs ...error) RuleSet {
+func (r *ruleSet) MustLessThan(field string, errs ...error) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -411,7 +432,7 @@ func (r *ruleSet) MustLessThan(field string,errs ...error) RuleSet {
 	return r
 }
 
-func (r *ruleSet) MustLargeThan(field string,errs ...error) RuleSet {
+func (r *ruleSet) MustLargeThan(field string, errs ...error) RuleSet {
 	if r.setError != nil {
 		return r
 	}
