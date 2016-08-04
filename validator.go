@@ -11,6 +11,7 @@ type RuleSet interface {
 	Require(bool) RuleSet
 	MustLength(int, ...error) RuleSet
 	MustInt(...error) RuleSet
+	MustInt64(...error) RuleSet
 	MustBool(...error) RuleSet
 	MustMin(int, ...error) RuleSet
 	MustMax(int, ...error) RuleSet
@@ -191,6 +192,8 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 					switch v.typeMap[paramName] {
 					case reflect.Int:
 						sv.Field(j).SetInt(int64(v.valueMap[paramName].(int)))
+					case reflect.Int64:
+						sv.Field(j).SetInt(v.valueMap[paramName].(int64))
 					case reflect.Bool:
 						sv.Field(j).SetBool(v.valueMap[paramName].(bool))
 					case reflect.String:
@@ -200,6 +203,8 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 					switch v.typeMap[paramName] {
 					case reflect.Int:
 						sv.Field(j).SetInt(int64(v.defaultValueMap[paramName].(int)))
+					case reflect.Int64:
+						sv.Field(j).SetInt(v.defaultValueMap[paramName].(int64))
 					case reflect.Bool:
 						sv.Field(j).SetBool(v.defaultValueMap[paramName].(bool))
 					case reflect.String:
@@ -213,6 +218,8 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 				switch v.typeMap[paramName] {
 				case reflect.Int:
 					vl.Field(i).SetInt(int64(v.valueMap[paramName].(int)))
+				case reflect.Int64:
+					vl.Field(i).SetInt(v.valueMap[paramName].(int64))
 				case reflect.Bool:
 					vl.Field(i).SetBool(v.valueMap[paramName].(bool))
 				case reflect.String:
@@ -222,6 +229,8 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 				switch v.typeMap[paramName] {
 				case reflect.Int:
 					vl.Field(i).SetInt(int64(v.defaultValueMap[paramName].(int)))
+				case reflect.Int64:
+					vl.Field(i).SetInt(v.defaultValueMap[paramName].(int64))
 				case reflect.Bool:
 					vl.Field(i).SetBool(v.defaultValueMap[paramName].(bool))
 				case reflect.String:
@@ -244,6 +253,14 @@ func (v *Validate) valueCheck(key, value string) error {
 					return Terr
 				}
 				return fmt.Errorf("参数[%s]格式错误,参数值必须是int类型", key)
+			}
+		case reflect.Int64:
+			v.valueMap[key], err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				if Terr, ok := v.typeErrMap[key]; ok {
+					return Terr
+				}
+				return fmt.Errorf("参数[%s]格式错误,参数值必须是int64类型", key)
 			}
 		case reflect.Bool:
 			if valueBool, err := strconv.ParseBool(value); err != nil {
@@ -294,6 +311,21 @@ func (r *ruleSet) MustInt(errs ...error) RuleSet {
 		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
 	r.valid.typeMap[r.paramName] = reflect.Int
+	return r
+}
+
+func (r *ruleSet) MustInt64(errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustInt")
+	}
+
+	if len(errs) == 1 {
+		r.valid.typeErrMap[r.paramName] = errs[0]
+	}
+	r.valid.typeMap[r.paramName] = reflect.Int64
 	return r
 }
 
