@@ -32,7 +32,7 @@ const (
 
 type ValidationFunc func(string, interface{}, url.Values, ...interface{}) error
 
-type Validate struct {
+type Validator struct {
 	IgnoreUnknownParams bool
 	requireParams       []string
 	requireUrlParams    []string
@@ -45,8 +45,8 @@ type Validate struct {
 	typeErrMap          map[string]error
 }
 
-func NewValidator() *Validate {
-	v := new(Validate)
+func NewValidator() *Validator {
+	v := new(Validator)
 	v.IgnoreUnknownParams = true
 	v.ruleMap = make(map[string][]rule)
 	v.typeMap = make(map[string]reflect.Kind)
@@ -56,7 +56,7 @@ func NewValidator() *Validate {
 	return v
 }
 
-func Validator(params url.Values, v *Validate) error {
+func Validate(params url.Values, v *Validator) error {
 	v.valueMap = make(map[string]interface{})
 	for _, p := range v.requireParams {
 		if _, ok := params[p]; !ok {
@@ -98,7 +98,7 @@ func Validator(params url.Values, v *Validate) error {
 	return nil
 }
 
-func UrlValidator(params map[string]string, v *Validate) error {
+func UrlValidator(params map[string]string, v *Validator) error {
 	for _, p := range v.requireUrlParams {
 		if _, ok := params[p]; !ok {
 			Perr := new(ParamsError)
@@ -140,7 +140,7 @@ func UrlValidator(params map[string]string, v *Validate) error {
 }
 
 type ruleSet struct {
-	valid        *Validate
+	valid        *Validator
 	is_url_param bool
 	paramName    string
 	setError     error
@@ -154,7 +154,7 @@ type rule struct {
 
 var _ RuleSet = new(ruleSet)
 
-func (v *Validate) NewParam(paramName string, value ... interface{}) RuleSet {
+func (v *Validator) NewParam(paramName string, value ... interface{}) RuleSet {
 	r := new(ruleSet)
 	r.paramName = paramName
 	r.valid = v
@@ -166,7 +166,7 @@ func (v *Validate) NewParam(paramName string, value ... interface{}) RuleSet {
 	return r
 }
 
-func (v *Validate) NewUrlParam(paramName string, value ... interface{}) RuleSet {
+func (v *Validator) NewUrlParam(paramName string, value ... interface{}) RuleSet {
 	r := new(ruleSet)
 	r.paramName = paramName
 	r.is_url_param = true
@@ -179,7 +179,7 @@ func (v *Validate) NewUrlParam(paramName string, value ... interface{}) RuleSet 
 	return r
 }
 
-func (v *Validate) ValuesToStruct(dst interface{}) error {
+func (v *Validator) ValuesToStruct(dst interface{}) error {
 	vl := reflect.ValueOf(dst)
 	if vl.Kind() != reflect.Ptr || vl.Elem().Kind() != reflect.Struct {
 		return NewTextError("interface must be a pointer to struct")
@@ -275,7 +275,7 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 	return nil
 }
 
-func (v *Validate) valueCheck(key, value string) error {
+func (v *Validator) valueCheck(key, value string) error {
 	if pType, ok := v.typeMap[key]; ok {
 		var err error
 		switch pType {
