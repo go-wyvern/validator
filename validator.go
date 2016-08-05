@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type RuleSet interface {
@@ -15,6 +16,7 @@ type RuleSet interface {
 	MustBool(...error) RuleSet
 	MustMin(int, ...error) RuleSet
 	MustMax(int, ...error) RuleSet
+	MustSeparator(string, reflect.Kind, ...error) RuleSet
 	MustLengthRange(int, int, ...error) RuleSet
 	MustValues([]interface{}, ...error) RuleSet
 	MustTimeLayout(string, ...error) RuleSet
@@ -34,10 +36,12 @@ type Validate struct {
 	IgnoreUnknownParams bool
 	requireParams       []string
 	requireUrlParams    []string
+	splitChar           string
 	ruleMap             map[string][]rule
 	valueMap            map[string]interface{}
 	defaultValueMap     map[string]interface{}
 	typeMap             map[string]reflect.Kind
+	elemTypeMap         map[string]reflect.Kind
 	typeErrMap          map[string]error
 }
 
@@ -46,6 +50,7 @@ func NewValidator() *Validate {
 	v.IgnoreUnknownParams = true
 	v.ruleMap = make(map[string][]rule)
 	v.typeMap = make(map[string]reflect.Kind)
+	v.elemTypeMap = make(map[string]reflect.Kind)
 	v.valueMap = make(map[string]interface{})
 	v.defaultValueMap = make(map[string]interface{})
 	return v
@@ -198,6 +203,13 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 						sv.Field(j).SetBool(v.valueMap[paramName].(bool))
 					case reflect.String:
 						sv.Field(j).SetString(v.valueMap[paramName].(string))
+					case reflect.Slice:
+						slicev := reflect.MakeSlice(sv.Field(i).Type(), 0, 0)
+						vInterface := v.valueMap[paramName].([]interface{})
+						for _, sliceV := range vInterface {
+							slicev = reflect.Append(slicev, reflect.ValueOf(sliceV))
+						}
+						sv.Field(i).Set(slicev)
 					}
 				} else if _, ok := v.defaultValueMap[paramName]; ok {
 					switch v.typeMap[paramName] {
@@ -209,6 +221,13 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 						sv.Field(j).SetBool(v.defaultValueMap[paramName].(bool))
 					case reflect.String:
 						sv.Field(j).SetString(v.defaultValueMap[paramName].(string))
+					case reflect.Slice:
+						slicev := reflect.MakeSlice(sv.Field(i).Type(), 0, 0)
+						vInterface := v.defaultValueMap[paramName].([]interface{})
+						for _, sliceV := range vInterface {
+							slicev = reflect.Append(slicev, reflect.ValueOf(sliceV))
+						}
+						sv.Field(i).Set(slicev)
 					}
 				}
 			}
@@ -224,6 +243,13 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 					vl.Field(i).SetBool(v.valueMap[paramName].(bool))
 				case reflect.String:
 					vl.Field(i).SetString(v.valueMap[paramName].(string))
+				case reflect.Slice:
+					sv := reflect.MakeSlice(vl.Field(i).Type(), 0, 0)
+					vInterface := v.valueMap[paramName].([]interface{})
+					for _, sliceV := range vInterface {
+						sv = reflect.Append(sv, reflect.ValueOf(sliceV))
+					}
+					vl.Field(i).Set(sv)
 				}
 			} else if _, ok := v.defaultValueMap[paramName]; ok {
 				switch v.typeMap[paramName] {
@@ -235,6 +261,13 @@ func (v *Validate) ValuesToStruct(dst interface{}) error {
 					vl.Field(i).SetBool(v.defaultValueMap[paramName].(bool))
 				case reflect.String:
 					vl.Field(i).SetString(v.defaultValueMap[paramName].(string))
+				case reflect.Slice:
+					sv := reflect.MakeSlice(vl.Field(i).Type(), 0, 0)
+					vInterface := v.defaultValueMap[paramName].([]interface{})
+					for _, sliceV := range vInterface {
+						sv = reflect.Append(sv, reflect.ValueOf(sliceV))
+					}
+					vl.Field(i).Set(sv)
 				}
 			}
 		}
@@ -273,6 +306,49 @@ func (v *Validate) valueCheck(key, value string) error {
 			}
 		case reflect.String:
 			v.valueMap[key] = value
+		case reflect.Slice:
+			var sliceInterface []interface{}
+			sliceString := strings.Split(value, v.splitChar)
+			switch v.elemTypeMap[key] {
+			case reflect.Int:
+				for _, vString := range sliceString {
+					vInt, err := strconv.Atoi(vString)
+					if err != nil {
+						if Terr, ok := v.typeErrMap[key]; ok {
+							return Terr
+						}
+						return fmt.Errorf("参数[%s]格式错误,参数值必须是int类型", key)
+					}
+					sliceInterface = append(sliceInterface, vInt)
+				}
+			case reflect.Int64:
+				for _, vString := range sliceString {
+					vInt64, err := strconv.ParseInt(vString, 10, 64)
+					if err != nil {
+						if Terr, ok := v.typeErrMap[key]; ok {
+							return Terr
+						}
+						return fmt.Errorf("参数[%s]格式错误,参数值必须是int64类型", key)
+					}
+					sliceInterface = append(sliceInterface, vInt64)
+				}
+			case reflect.Bool:
+				for _, vString := range sliceString {
+					if vBool, err := strconv.ParseBool(vString); err != nil {
+						if Terr, ok := v.typeErrMap[key]; ok {
+							return Terr
+						}
+						return fmt.Errorf("参数[%s]格式错误,参数值必须是bool类型", key)
+					} else {
+						sliceInterface = append(sliceInterface, vBool)
+					}
+				}
+			case reflect.String:
+				for _, vString := range sliceString {
+					sliceInterface = append(sliceInterface, vString)
+				}
+			}
+			v.valueMap[key] = sliceInterface
 		default:
 
 		}
@@ -341,6 +417,23 @@ func (r *ruleSet) MustBool(errs ...error) RuleSet {
 		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
 	r.valid.typeMap[r.paramName] = reflect.Bool
+	return r
+}
+
+func (r *ruleSet) MustSeparator(s string, elemType reflect.Kind, errs ...error) RuleSet {
+	if r.setError != nil {
+		return r
+	}
+	if r.paramName == "" {
+		panic("unknown param name when set MustBool")
+	}
+
+	if len(errs) == 1 {
+		r.valid.typeErrMap[r.paramName] = errs[0]
+	}
+	r.valid.splitChar = s
+	r.valid.typeMap[r.paramName] = reflect.Slice
+	r.valid.elemTypeMap[r.paramName] = elemType
 	return r
 }
 
