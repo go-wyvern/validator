@@ -204,7 +204,7 @@ func (v *Validator) ValuesToStruct(dst interface{}) error {
 					case reflect.String:
 						sv.Field(j).SetString(v.valueMap[paramName].(string))
 					case reflect.Slice:
-						slicev := reflect.MakeSlice(sv.Field(i).Type(), 0, 0)
+						slicev := reflect.MakeSlice(sv.Field(j).Type(), 0, 0)
 						vInterface := v.valueMap[paramName].([]interface{})
 						for _, sliceV := range vInterface {
 							slicev = reflect.Append(slicev, reflect.ValueOf(sliceV))
@@ -222,7 +222,7 @@ func (v *Validator) ValuesToStruct(dst interface{}) error {
 					case reflect.String:
 						sv.Field(j).SetString(v.defaultValueMap[paramName].(string))
 					case reflect.Slice:
-						slicev := reflect.MakeSlice(sv.Field(i).Type(), 0, 0)
+						slicev := reflect.MakeSlice(sv.Field(j).Type(), 0, 0)
 						vInterface := v.defaultValueMap[paramName].([]interface{})
 						for _, sliceV := range vInterface {
 							slicev = reflect.Append(slicev, reflect.ValueOf(sliceV))
