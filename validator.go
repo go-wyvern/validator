@@ -67,6 +67,9 @@ func Validate(params url.Values, v *Validator) error {
 		}
 	}
 	for key, value := range params {
+		if value[0] = "" {
+			continue
+		}
 		if rules, ok := v.ruleMap[key]; ok {
 			err := v.valueCheck(key, value[0])
 			if err != nil {
@@ -108,6 +111,9 @@ func UrlValidator(params map[string]string, v *Validator) error {
 		}
 	}
 	for key, value := range params {
+		if value[0] = "" {
+			continue
+		}
 		if rules, ok := v.ruleMap[key]; ok {
 			err := v.valueCheck(key, value)
 			if err != nil {
