@@ -9,7 +9,7 @@ type ParamsError struct {
 	Text        string
 }
 
-const (
+var (
 	UnknownParamTpl = "未知的参数:%s"
 	RequireParamTpl = "%s是必须的参数"
 	MustLengthTpl = "参数[%s]的长度必须为%v"
