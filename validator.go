@@ -9,6 +9,7 @@ import (
 )
 
 type RuleSet interface {
+	Description(string) RuleSet
 	Require(bool) RuleSet
 	MustLength(int, ...error) RuleSet
 	MustInt(...error) RuleSet
@@ -32,8 +33,16 @@ const (
 
 type ValidationFunc func(string, interface{}, url.Values, ...interface{}) error
 
+type Params struct {
+	Type        string
+	Description string
+	Require     bool
+	Rules       []rule
+}
+
 type Validator struct {
 	IgnoreUnknownParams bool
+	ApiParams           map[string]*Params
 	requireParams       []string
 	requireUrlParams    []string
 	splitChar           string
@@ -48,6 +57,7 @@ type Validator struct {
 func NewValidator() *Validator {
 	v := new(Validator)
 	v.IgnoreUnknownParams = true
+	v.ApiParams = make(map[string]*Params)
 	v.ruleMap = make(map[string][]rule)
 	v.typeMap = make(map[string]reflect.Kind)
 	v.elemTypeMap = make(map[string]reflect.Kind)
@@ -67,7 +77,7 @@ func Validate(params url.Values, v *Validator) error {
 		}
 	}
 	for key, value := range params {
-		if value[0] = "" {
+		if value[0] == "" {
 			continue
 		}
 		if rules, ok := v.ruleMap[key]; ok {
@@ -111,7 +121,7 @@ func UrlValidator(params map[string]string, v *Validator) error {
 		}
 	}
 	for key, value := range params {
-		if value[0] = "" {
+		if value == "" {
 			continue
 		}
 		if rules, ok := v.ruleMap[key]; ok {
@@ -161,6 +171,9 @@ type rule struct {
 var _ RuleSet = new(ruleSet)
 
 func (v *Validator) NewParam(paramName string, value ... interface{}) RuleSet {
+	p := new(Params)
+	p.Type = reflect.String.String()
+	v.ApiParams[paramName] = p
 	r := new(ruleSet)
 	r.paramName = paramName
 	r.valid = v
@@ -173,6 +186,9 @@ func (v *Validator) NewParam(paramName string, value ... interface{}) RuleSet {
 }
 
 func (v *Validator) NewUrlParam(paramName string, value ... interface{}) RuleSet {
+	p := new(Params)
+	p.Type = reflect.String.String()
+	v.ApiParams[paramName] = p
 	r := new(ruleSet)
 	r.paramName = paramName
 	r.is_url_param = true
@@ -363,6 +379,11 @@ func (v *Validator) valueCheck(key, value string) error {
 	return nil
 }
 
+func (r *ruleSet) Description(description string) RuleSet {
+	r.valid.ApiParams[r.paramName].Description = description
+	return r
+}
+
 func (r *ruleSet) Require(require bool) RuleSet {
 	if r.setError != nil {
 		return r
@@ -370,6 +391,8 @@ func (r *ruleSet) Require(require bool) RuleSet {
 	if r.paramName == "" {
 		panic("unknown param name when set Require")
 	}
+
+	r.valid.ApiParams[r.paramName].Require = require
 
 	if require {
 		if r.is_url_param {
@@ -392,6 +415,7 @@ func (r *ruleSet) MustInt(errs ...error) RuleSet {
 	if len(errs) == 1 {
 		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Type = reflect.Int.String()
 	r.valid.typeMap[r.paramName] = reflect.Int
 	return r
 }
@@ -407,6 +431,7 @@ func (r *ruleSet) MustInt64(errs ...error) RuleSet {
 	if len(errs) == 1 {
 		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Type = reflect.Int64.String()
 	r.valid.typeMap[r.paramName] = reflect.Int64
 	return r
 }
@@ -422,6 +447,7 @@ func (r *ruleSet) MustBool(errs ...error) RuleSet {
 	if len(errs) == 1 {
 		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Type = reflect.Bool.String()
 	r.valid.typeMap[r.paramName] = reflect.Bool
 	return r
 }
@@ -456,6 +482,7 @@ func (r *ruleSet) MustLength(length int, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -473,6 +500,7 @@ func (r *ruleSet) MustMin(min int, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -490,6 +518,7 @@ func (r *ruleSet) MustMax(max int, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -508,6 +537,7 @@ func (r *ruleSet) MustLengthRange(min, max int, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -525,6 +555,7 @@ func (r *ruleSet) MustValues(values []interface{}, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -542,6 +573,7 @@ func (r *ruleSet) MustTimeLayout(layout string, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -559,6 +591,7 @@ func (r *ruleSet) MustLessThan(field string, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -576,6 +609,7 @@ func (r *ruleSet) MustLargeThan(field string, errs ...error) RuleSet {
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
@@ -593,7 +627,7 @@ func (r *ruleSet) MustFunc(f ValidationFunc, args []interface{}, errs ...error) 
 	if len(errs) == 1 {
 		rl.errMsg = errs[0]
 	}
+	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
-
 	return r
 }

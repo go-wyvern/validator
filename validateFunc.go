@@ -31,7 +31,9 @@ func mustLength(k string, v interface{}, params url.Values, args ...interface{})
 	length := args[0]
 	if vString, ok := v.(string); ok {
 		if len(vString) != length.(int) {
-			return fmt.Errorf("参数[%s]的长度必须为%v", k, length)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustLength()
 		}
 	}
 	return nil
@@ -45,7 +47,9 @@ func mustMin(k string, v interface{}, params url.Values, args ...interface{}) er
 	min := args[0]
 	if vInt, ok := v.(int); ok {
 		if vInt < min.(int) {
-			return fmt.Errorf("参数[%s]的最小值必须大于%v", k, min)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustMin()
 		}
 	}
 	return nil
@@ -59,7 +63,9 @@ func mustMax(k string, v interface{}, params url.Values, args ...interface{}) er
 	max := args[0]
 	if vInt, ok := v.(int); ok {
 		if vInt > max.(int) {
-			return fmt.Errorf("参数[%s]的最大值必须小于%v", k, max)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustMax()
 		}
 	}
 	return nil
@@ -74,7 +80,9 @@ func mustLengthRange(k string, v interface{}, params url.Values, args ...interfa
 	max := args[1]
 	if vString, ok := v.(string); ok {
 		if len(vString) < min.(int) || len(vString) > max.(int) {
-			return fmt.Errorf("参数[%s]的长度必须为大于%v小于%v", k, min, max)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustLengthRange()
 		}
 	}
 	return nil
@@ -96,7 +104,9 @@ func mustValues(k string, v interface{}, params url.Values, args ...interface{})
 	}
 
 	if allNotMatch {
-		return fmt.Errorf("参数[%s]的值必须在%v的范围中", k, values.([]interface{}))
+		pErr:=NewParamsError(k,v)
+		pErr.Args=args
+		return pErr.ErrMustValues()
 	}
 	return nil
 }
@@ -111,7 +121,9 @@ func mustTimeLayout(k string, v interface{}, params url.Values, args ...interfac
 	if vString, ok := v.(string); ok {
 		_, err := time.Parse(layout.(string), vString)
 		if err != nil {
-			return fmt.Errorf("参数[%s]的格式必须是%v", k, layout)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustTimeLayout()
 		}
 	}
 	return nil
@@ -129,7 +141,9 @@ func mustLessThan(k string, v interface{}, params url.Values, args ...interface{
 			return err
 		}
 		if vInt >= pInt {
-			return fmt.Errorf("参数[%s]的值必须小于参数[%s]", k, field)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustLessThan()
 		}
 	}
 	return nil
@@ -147,7 +161,9 @@ func mustLargeThan(k string, v interface{}, params url.Values, args ...interface
 			return err
 		}
 		if vInt <= pInt {
-			return fmt.Errorf("参数[%s]的值必须大于参数[%s]", k, field)
+			pErr:=NewParamsError(k,v)
+			pErr.Args=args
+			return pErr.ErrMustLargeThan()
 		}
 	}
 	return nil
