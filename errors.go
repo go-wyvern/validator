@@ -90,7 +90,7 @@ func (p *ParamsError) ErrMustLargeThan() *ParamsError {
 	return p
 }
 
-func NewParamsError(k, v string) *ParamsError {
+func NewParamsError(k string, v interface{}) *ParamsError {
 	pErr := new(ParamsError)
 	pErr.Key = k
 	pErr.Value = v

@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"fmt"
 	"net/url"
 	"time"
 	"strconv"
