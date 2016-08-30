@@ -11,27 +11,27 @@ import (
 type RuleSet interface {
 	Description(string) RuleSet
 	Require(bool) RuleSet
-	MustLength(int, ...error) RuleSet
-	MustInt(...error) RuleSet
-	MustInt64(...error) RuleSet
-	MustBool(...error) RuleSet
-	MustMin(int, ...error) RuleSet
-	MustMax(int, ...error) RuleSet
-	MustSeparator(string, reflect.Kind, ...error) RuleSet
-	MustLengthRange(int, int, ...error) RuleSet
-	MustValues([]interface{}, ...error) RuleSet
-	MustTimeLayout(string, ...error) RuleSet
-	MustLessThan(string, ...error) RuleSet
-	MustLargeThan(string, ...error) RuleSet
-	MustFunc(ValidationFunc, []interface{}, ...error) RuleSet
+	MustLength(int) RuleSet
+	MustInt() RuleSet
+	MustInt64() RuleSet
+	MustBool() RuleSet
+	MustMin(int) RuleSet
+	MustMax(int) RuleSet
+	MustSeparator(string, reflect.Kind) RuleSet
+	MustLengthRange(int, int) RuleSet
+	MustValues([]interface{}) RuleSet
+	MustTimeLayout(string) RuleSet
+	MustLessThan(string) RuleSet
+	MustLargeThan(string) RuleSet
+	MustFunc(ValidationFunc, []interface{}) RuleSet
 }
 
 const (
-	ValidTag = "valid"
+	ValidTag    = "valid"
 	ValidateTag = "validate"
 )
 
-type ValidationFunc func(string, interface{}, url.Values, ...interface{}) error
+type ValidationFunc func(string, interface{}, url.Values, bool, ...interface{}) error
 
 type Params struct {
 	Type        string
@@ -42,6 +42,7 @@ type Params struct {
 
 type Validator struct {
 	IgnoreUnknownParams bool
+	CustomError         bool
 	ApiParams           map[string]*Params
 	requireParams       []string
 	requireUrlParams    []string
@@ -72,7 +73,7 @@ func Validate(params url.Values, v *Validator) error {
 		if _, ok := params[p]; !ok {
 			Perr := new(ParamsError)
 			Perr.Key = p
-			Perr.ErrRequireParam()
+			Perr.ErrRequireParam(v.CustomError)
 			return Perr
 		}
 	}
@@ -89,22 +90,18 @@ func Validate(params url.Values, v *Validator) error {
 				if rule.f != nil {
 					var err error
 					if valueInterface, ok := v.valueMap[key]; ok {
-						err = rule.f(key, valueInterface, params, rule.args...)
+						err = rule.f(key, valueInterface, params, v.CustomError, rule.args...)
 					} else {
-						err = rule.f(key, value[0], params, rule.args...)
+						err = rule.f(key, value[0], params, v.CustomError, rule.args...)
 					}
 					if err != nil {
-						if rule.errMsg != nil {
-							return rule.errMsg
-						} else {
-							return err
-						}
+						return err
 					}
 				}
 			}
 		} else {
 			Perr := NewParamsError(key, value[0])
-			Perr.ErrUnknownParam()
+			Perr.ErrUnknownParam(v.CustomError)
 			return Perr
 		}
 	}
@@ -116,7 +113,7 @@ func UrlValidator(params map[string]string, v *Validator) error {
 		if _, ok := params[p]; !ok {
 			Perr := new(ParamsError)
 			Perr.Key = p
-			Perr.ErrRequireParam()
+			Perr.ErrRequireParam(v.CustomError)
 			return Perr
 		}
 	}
@@ -133,22 +130,18 @@ func UrlValidator(params map[string]string, v *Validator) error {
 				if rule.f != nil {
 					var err error
 					if valueInterface, ok := v.valueMap[key]; ok {
-						err = rule.f(key, valueInterface, nil, rule.args...)
+						err = rule.f(key, valueInterface, nil, v.CustomError, rule.args...)
 					} else {
-						err = rule.f(key, value, nil, rule.args...)
+						err = rule.f(key, value, nil, v.CustomError, rule.args...)
 					}
 					if err != nil {
-						if rule.errMsg != nil {
-							return rule.errMsg
-						} else {
-							return err
-						}
+						return err
 					}
 				}
 			}
 		} else {
 			Perr := NewParamsError(key, value)
-			Perr.ErrUnknownParam()
+			Perr.ErrUnknownParam(v.CustomError)
 			return Perr
 		}
 	}
@@ -170,7 +163,7 @@ type rule struct {
 
 var _ RuleSet = new(ruleSet)
 
-func (v *Validator) NewParam(paramName string, value ... interface{}) RuleSet {
+func (v *Validator) NewParam(paramName string, value ...interface{}) RuleSet {
 	p := new(Params)
 	p.Type = reflect.String.String()
 	v.ApiParams[paramName] = p
@@ -185,7 +178,7 @@ func (v *Validator) NewParam(paramName string, value ... interface{}) RuleSet {
 	return r
 }
 
-func (v *Validator) NewUrlParam(paramName string, value ... interface{}) RuleSet {
+func (v *Validator) NewUrlParam(paramName string, value ...interface{}) RuleSet {
 	p := new(Params)
 	p.Type = reflect.String.String()
 	v.ApiParams[paramName] = p
@@ -199,6 +192,11 @@ func (v *Validator) NewUrlParam(paramName string, value ... interface{}) RuleSet
 	}
 	r.valid.ruleMap[paramName] = append(r.valid.ruleMap[paramName], *new(rule))
 	return r
+}
+
+func (v *Validator) SetCustomError() *Validator {
+	v.CustomError = true
+	return v
 }
 
 func (v *Validator) ValuesToStruct(dst interface{}) error {
@@ -404,7 +402,7 @@ func (r *ruleSet) Require(require bool) RuleSet {
 	return r
 }
 
-func (r *ruleSet) MustInt(errs ...error) RuleSet {
+func (r *ruleSet) MustInt() RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -412,15 +410,12 @@ func (r *ruleSet) MustInt(errs ...error) RuleSet {
 		panic("unknown param name when set MustInt")
 	}
 
-	if len(errs) == 1 {
-		r.valid.typeErrMap[r.paramName] = errs[0]
-	}
 	r.valid.ApiParams[r.paramName].Type = reflect.Int.String()
 	r.valid.typeMap[r.paramName] = reflect.Int
 	return r
 }
 
-func (r *ruleSet) MustInt64(errs ...error) RuleSet {
+func (r *ruleSet) MustInt64() RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -428,15 +423,12 @@ func (r *ruleSet) MustInt64(errs ...error) RuleSet {
 		panic("unknown param name when set MustInt")
 	}
 
-	if len(errs) == 1 {
-		r.valid.typeErrMap[r.paramName] = errs[0]
-	}
 	r.valid.ApiParams[r.paramName].Type = reflect.Int64.String()
 	r.valid.typeMap[r.paramName] = reflect.Int64
 	return r
 }
 
-func (r *ruleSet) MustBool(errs ...error) RuleSet {
+func (r *ruleSet) MustBool() RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -444,24 +436,17 @@ func (r *ruleSet) MustBool(errs ...error) RuleSet {
 		panic("unknown param name when set MustBool")
 	}
 
-	if len(errs) == 1 {
-		r.valid.typeErrMap[r.paramName] = errs[0]
-	}
 	r.valid.ApiParams[r.paramName].Type = reflect.Bool.String()
 	r.valid.typeMap[r.paramName] = reflect.Bool
 	return r
 }
 
-func (r *ruleSet) MustSeparator(s string, elemType reflect.Kind, errs ...error) RuleSet {
+func (r *ruleSet) MustSeparator(s string, elemType reflect.Kind) RuleSet {
 	if r.setError != nil {
 		return r
 	}
 	if r.paramName == "" {
 		panic("unknown param name when set MustBool")
-	}
-
-	if len(errs) == 1 {
-		r.valid.typeErrMap[r.paramName] = errs[0]
 	}
 	r.valid.splitChar = s
 	r.valid.typeMap[r.paramName] = reflect.Slice
@@ -469,7 +454,7 @@ func (r *ruleSet) MustSeparator(s string, elemType reflect.Kind, errs ...error) 
 	return r
 }
 
-func (r *ruleSet) MustLength(length int, errs ...error) RuleSet {
+func (r *ruleSet) MustLength(length int) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -479,15 +464,12 @@ func (r *ruleSet) MustLength(length int, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustLength
 	rl.args = append(rl.args, length)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustMin(min int, errs ...error) RuleSet {
+func (r *ruleSet) MustMin(min int) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -497,15 +479,12 @@ func (r *ruleSet) MustMin(min int, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustMin
 	rl.args = append(rl.args, min)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustMax(max int, errs ...error) RuleSet {
+func (r *ruleSet) MustMax(max int) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -515,15 +494,13 @@ func (r *ruleSet) MustMax(max int, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustMax
 	rl.args = append(rl.args, max)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustLengthRange(min, max int, errs ...error) RuleSet {
+func (r *ruleSet) MustLengthRange(min, max int) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -534,15 +511,13 @@ func (r *ruleSet) MustLengthRange(min, max int, errs ...error) RuleSet {
 	rl.f = mustLengthRange
 	rl.args = append(rl.args, min)
 	rl.args = append(rl.args, max)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustValues(values []interface{}, errs ...error) RuleSet {
+func (r *ruleSet) MustValues(values []interface{}) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -552,15 +527,13 @@ func (r *ruleSet) MustValues(values []interface{}, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustValues
 	rl.args = append(rl.args, values)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustTimeLayout(layout string, errs ...error) RuleSet {
+func (r *ruleSet) MustTimeLayout(layout string) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -570,15 +543,13 @@ func (r *ruleSet) MustTimeLayout(layout string, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustTimeLayout
 	rl.args = append(rl.args, layout)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustLessThan(field string, errs ...error) RuleSet {
+func (r *ruleSet) MustLessThan(field string) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -588,15 +559,13 @@ func (r *ruleSet) MustLessThan(field string, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustLessThan
 	rl.args = append(rl.args, field)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustLargeThan(field string, errs ...error) RuleSet {
+func (r *ruleSet) MustLargeThan(field string) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -606,15 +575,13 @@ func (r *ruleSet) MustLargeThan(field string, errs ...error) RuleSet {
 	rl := new(rule)
 	rl.f = mustLargeThan
 	rl.args = append(rl.args, field)
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
 }
 
-func (r *ruleSet) MustFunc(f ValidationFunc, args []interface{}, errs ...error) RuleSet {
+func (r *ruleSet) MustFunc(f ValidationFunc, args []interface{}) RuleSet {
 	if r.setError != nil {
 		return r
 	}
@@ -624,9 +591,7 @@ func (r *ruleSet) MustFunc(f ValidationFunc, args []interface{}, errs ...error) 
 	rl := new(rule)
 	rl.f = f
 	rl.args = args
-	if len(errs) == 1 {
-		rl.errMsg = errs[0]
-	}
+
 	r.valid.ApiParams[r.paramName].Rules = append(r.valid.ApiParams[r.paramName].Rules, *rl)
 	r.valid.ruleMap[r.paramName] = append(r.valid.ruleMap[r.paramName], *rl)
 	return r
