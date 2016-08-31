@@ -1,13 +1,14 @@
 package validator
 
 import (
-	"github.com/go-wyvern/Leego"
-	"io"
-	"strings"
-	"html/template"
-	"os"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"html/template"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/go-wyvern/Leego"
 )
 
 var AppApis []Api
@@ -15,32 +16,32 @@ var AppApis []Api
 const codeTag = "```"
 
 type Api struct {
-	Description string
-	Method      string
-	Path        string
-	Handler   leego.HandlerFunc
+	Description   string
+	Method        string
+	Path          string
+	Handler       leego.HandlerFunc
 	SuccessStdOut interface{}
 	SuccessFormat []byte
-	FailStdOut interface{}
-	FailFormat  []byte
-	StdFormat   string
-	CodeTag     string
-	Validator *Validator
+	FailStdOut    interface{}
+	FailFormat    []byte
+	StdFormat     string
+	CodeTag       string
+	Validator     *Validator
 }
 
 type Module struct {
 	ModuleName string
-	Apis   []Api
+	Apis       []Api
 }
 
 type Project struct {
 	ProjectName string
-	Modules      []Module
+	Modules     []Module
 }
 
 func Find(method, path string) *Validator {
-	for _,r:=range AppApis {
-		if r.Method==method&& r.Path==path {
+	for _, r := range AppApis {
+		if r.Method == method && r.Path == path {
 			return r.Validator
 		}
 	}
@@ -59,28 +60,28 @@ func NewModule(module_name string) *Module {
 	return module
 }
 
-func NewApi(method, path,d string, h leego.HandlerFunc, v *Validator) *Api {
+func NewApi(method, path, d string, h leego.HandlerFunc, v *Validator) *Api {
 	r := new(Api)
 	r.Method = method
-	r.Description=d
+	r.Description = d
 	r.Path = path
 	r.Handler = h
 	r.Validator = v
-	r.CodeTag=codeTag
+	r.CodeTag = codeTag
 	return r
 }
 
 func (c *Api) SetSuccessStdOut(s interface{}) {
 	c.SuccessStdOut = s
-	if c.StdFormat=="json" {
-		c.SuccessFormat,_=json.MarshalIndent(s,"","  ")
+	if c.StdFormat == "json" {
+		c.SuccessFormat, _ = json.MarshalIndent(s, "", "  ")
 	}
 }
 
 func (c *Api) SetFailStdOut(s interface{}) {
 	c.FailStdOut = s
-	if c.StdFormat=="json" {
-		c.FailFormat,_=json.MarshalIndent(s,"","  ")
+	if c.StdFormat == "json" {
+		c.FailFormat, _ = json.MarshalIndent(s, "", "  ")
 	}
 }
 
@@ -95,21 +96,21 @@ func (c *Project) Use(m Module) *Project {
 	return c
 }
 
-func (c *Project) RenderMarkdown(filename string,app *Project) error {
+func (c *Project) RenderMarkdown(filename string) error {
 	var err error
-	f,err:=os.Create(filename)
-	if err!=nil{
+	f, err := os.Create(filename)
+	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
-	err=tmpl(f,MarkdownTemplate,app)
+	err = tmpl(f, MarkdownTemplate, c)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-var MarkdownTemplate =`{{with .}}# {{.ProjectName}}
+var MarkdownTemplate = `{{with .}}# {{.ProjectName}}
 {{range .Modules}}
 ## {{.ModuleName}}
 {{range .Apis}}
@@ -136,7 +137,7 @@ var MarkdownTemplate =`{{with .}}# {{.ProjectName}}
 {{end}}{{end}}{{end}}
 `
 
-func tmpl(w io.Writer, text string, data interface{})error {
+func tmpl(w io.Writer, text string, data interface{}) error {
 	t := template.New("top")
 	t.Funcs(template.FuncMap{"trim": func(s template.HTML) template.HTML {
 		return template.HTML(strings.TrimSpace(string(s)))
