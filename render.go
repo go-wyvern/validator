@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-wyvern/Leego"
+	"github.com/go-wyvern/leego"
 )
 
 var AppApis []Api
