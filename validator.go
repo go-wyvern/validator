@@ -68,7 +68,6 @@ func NewValidator() *Validator {
 }
 
 func Validate(params url.Values, v *Validator) error {
-	v.valueMap = make(map[string]interface{})
 	for _, p := range v.requireParams {
 		if _, ok := params[p]; !ok {
 			Perr := new(ParamsError)
@@ -162,6 +161,24 @@ type rule struct {
 }
 
 var _ RuleSet = new(ruleSet)
+
+func (v *Validator) Clone() *Validator {
+	valid := Validator{
+		IgnoreUnknownParams: v.IgnoreUnknownParams,
+		CustomError:         v.CustomError,
+		ApiParams:           v.ApiParams,
+		requireParams:       v.requireParams,
+		requireUrlParams:    v.requireUrlParams,
+		splitChar:           v.splitChar,
+		ruleMap:             v.ruleMap,
+		valueMap:            make(map[string]interface{}),
+		defaultValueMap:     v.defaultValueMap,
+		typeMap:             v.typeMap,
+		elemTypeMap:         v.elemTypeMap,
+		typeErrMap:          v.typeErrMap,
+	}
+	return &valid
+}
 
 func (v *Validator) NewParam(paramName string, value ...interface{}) RuleSet {
 	p := new(Params)
