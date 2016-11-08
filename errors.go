@@ -12,6 +12,7 @@ type ParamsError struct {
 var (
 	defaultUnknownParamTpl    = "未知的参数:{{.Key}}"
 	defaultRequireParamTpl    = "{{.Key}}是必须的参数"
+	defaultRequireNotNullTpl  = "{{.Key}}是必须的参数，不能为空"
 	defaultMustLengthTpl      = "参数[{{.Key}}]的长度必须为{{index .Args 0}}"
 	defaultMustMinTpl         = "参数[{{.Key}}]的最小值必须大于{{index .Args 0}}"
 	defaultMustMaxTpl         = "参数[{{.Key}}]的最大值必须小于{{index .Args 0}}"
@@ -25,6 +26,7 @@ var (
 var (
 	CustomUnknownParamTpl    = "{{.unknow_param}}"
 	CustomRequireParamTpl    = "{{.require_param}}"
+	CustomRequireNotNullTpl  = "{{.require_not_null}}"
 	CustomMustLengthTpl      = "{{.must_length}}"
 	CustomMustMinTpl         = "{{.must_min}}"
 	CustomMustMaxTpl         = "{{.must_max}}"
@@ -62,6 +64,15 @@ func (p *ParamsError) ErrRequireParam(cus bool) *ParamsError {
 		return p
 	}
 	p.Text = defaultRequireParamTpl
+	return p.Tr()
+}
+
+func (p *ParamsError) ErrRequireNotNull(cus bool) *ParamsError {
+	if cus {
+		p.Text = CustomRequireNotNullTpl
+		return p
+	}
+	p.Text = defaultRequireNotNullTpl
 	return p.Tr()
 }
 

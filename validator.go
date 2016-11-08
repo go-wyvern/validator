@@ -69,17 +69,19 @@ func NewValidator() *Validator {
 
 func Validate(params url.Values, v *Validator) error {
 	for _, p := range v.requireParams {
-		if _, ok := params[p]; !ok {
+		if values, ok := params[p]; !ok {
 			Perr := new(ParamsError)
 			Perr.Key = p
 			Perr.ErrRequireParam(v.CustomError)
 			return Perr
+		} else if values[0] == "" {
+			Perr := new(ParamsError)
+			Perr.Key = p
+			Perr.ErrRequireNotNull(v.CustomError)
+			return Perr
 		}
 	}
 	for key, value := range params {
-		if value[0] == "" {
-			continue
-		}
 		if rules, ok := v.ruleMap[key]; ok {
 			err := v.valueCheck(key, value[0])
 			if err != nil {
@@ -109,17 +111,20 @@ func Validate(params url.Values, v *Validator) error {
 
 func UrlValidator(params map[string]string, v *Validator) error {
 	for _, p := range v.requireUrlParams {
-		if _, ok := params[p]; !ok {
+		if value, ok := params[p]; !ok {
 			Perr := new(ParamsError)
 			Perr.Key = p
 			Perr.ErrRequireParam(v.CustomError)
 			return Perr
+		} else if value == "" {
+			Perr := new(ParamsError)
+			Perr.Key = p
+			Perr.ErrRequireNotNull(v.CustomError)
+			return Perr
 		}
 	}
+
 	for key, value := range params {
-		if value == "" {
-			continue
-		}
 		if rules, ok := v.ruleMap[key]; ok {
 			err := v.valueCheck(key, value)
 			if err != nil {
