@@ -50,6 +50,18 @@ func mustMin(k string, v interface{}, params url.Values, cus bool, args ...inter
 			pErr.Args = args
 			return pErr.ErrMustMin(cus)
 		}
+	} else if vInt32, ok := v.(int32); ok {
+		if vInt32 < int32(min.(int)) {
+			pErr := NewParamsError(k, v)
+			pErr.Args = args
+			return pErr.ErrMustMin(cus)
+		}
+	} else if vInt64, ok := v.(int64); ok {
+		if vInt64 < int64(min.(int)) {
+			pErr := NewParamsError(k, v)
+			pErr.Args = args
+			return pErr.ErrMustMin(cus)
+		}
 	}
 	return nil
 }
@@ -62,6 +74,18 @@ func mustMax(k string, v interface{}, params url.Values, cus bool, args ...inter
 	max := args[0]
 	if vInt, ok := v.(int); ok {
 		if vInt > max.(int) {
+			pErr := NewParamsError(k, v)
+			pErr.Args = args
+			return pErr.ErrMustMax(cus)
+		}
+	} else if vInt32, ok := v.(int32); ok {
+		if vInt32 > int32(max.(int)) {
+			pErr := NewParamsError(k, v)
+			pErr.Args = args
+			return pErr.ErrMustMax(cus)
+		}
+	} else if vInt64, ok := v.(int64); ok {
+		if vInt64 > int64(max.(int)) {
 			pErr := NewParamsError(k, v)
 			pErr.Args = args
 			return pErr.ErrMustMax(cus)
