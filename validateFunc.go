@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+	"unicode/utf8"
 )
 
 func isSlice(f ValidationFunc, k string, v interface{}, params url.Values, cus bool, args ...interface{}) (bool, error) {
@@ -29,7 +30,7 @@ func mustLength(k string, v interface{}, params url.Values, cus bool, args ...in
 	}
 	length := args[0]
 	if vString, ok := v.(string); ok {
-		if len(vString) != length.(int) {
+		if utf8.RuneCountInString(vString) != length.(int) {
 			pErr := NewParamsError(k, v)
 			pErr.Args = args
 			return pErr.ErrMustLength(cus)
@@ -102,7 +103,7 @@ func mustLengthRange(k string, v interface{}, params url.Values, cus bool, args 
 	min := args[0]
 	max := args[1]
 	if vString, ok := v.(string); ok {
-		if len(vString) < min.(int) || len(vString) > max.(int) {
+		if utf8.RuneCountInString(vString) < min.(int) || utf8.RuneCountInString(vString) > max.(int) {
 			pErr := NewParamsError(k, v)
 			pErr.Args = args
 			return pErr.ErrMustLengthRange(cus)
