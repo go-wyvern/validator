@@ -39,12 +39,19 @@ Here is the list of validators interface in the package.
 ```
 type RuleSet interface {
 	Require(bool) RuleSet
-	MustLength(int, ...error) RuleSet
-	MustInt(...error) RuleSet
-	MustMin(int, ...error) RuleSet
-	MustMax(int, ...error) RuleSet
-	MustLengthRange(int, int, ...error) RuleSet
-	MustValues([]interface{}, ...error) RuleSet
+	MustLength(int) RuleSet
+	MustInt() RuleSet
+	MustInt64() RuleSet
+	MustBool() RuleSet
+	MustMin(int) RuleSet
+	MustMax(int) RuleSet
+	MustSeparator(string, reflect.Kind) RuleSet
+	MustLengthRange(int, int) RuleSet
+	MustValues([]interface{}) RuleSet
+	MustTimeLayout(string) RuleSet
+	MustLessThan(string) RuleSet
+	MustLargeThan(string) RuleSet
+	MustFunc(ValidationFunc, []interface{}) RuleSet
 }
 ```
 
