@@ -281,41 +281,55 @@ func (v *Validator) ValuesToStruct(dst interface{}) error {
 			}
 		} else {
 			paramName := t.Field(i).Tag.Get(ValidTag)
+			fieldv := vl.Field(i)
+			if fieldv.Kind() == reflect.Ptr && !fieldv.IsNil() {
+				fieldv = fieldv.Elem()
+			}
 			if _, ok := v.valueMap[paramName]; ok {
+				if fieldv.Kind() == reflect.Ptr && fieldv.CanSet() {
+					//对空指针进行初始化，暂时用临时变量保存
+					fieldv.Set(reflect.New(fieldv.Type().Elem()))
+					fieldv = fieldv.Elem()
+				}
 				switch v.typeMap[paramName] {
 				case reflect.Int:
-					vl.Field(i).SetInt(int64(v.valueMap[paramName].(int)))
+					fieldv.SetInt(int64(v.valueMap[paramName].(int)))
 				case reflect.Int64:
-					vl.Field(i).SetInt(v.valueMap[paramName].(int64))
+					fieldv.SetInt(v.valueMap[paramName].(int64))
 				case reflect.Bool:
-					vl.Field(i).SetBool(v.valueMap[paramName].(bool))
+					fieldv.SetBool(v.valueMap[paramName].(bool))
 				case reflect.String:
-					vl.Field(i).SetString(v.valueMap[paramName].(string))
+					fieldv.SetString(v.valueMap[paramName].(string))
 				case reflect.Slice:
-					sv := reflect.MakeSlice(vl.Field(i).Type(), 0, 0)
+					sv := reflect.MakeSlice(fieldv.Type(), 0, 0)
 					vInterface := v.valueMap[paramName].([]interface{})
 					for _, sliceV := range vInterface {
 						sv = reflect.Append(sv, reflect.ValueOf(sliceV))
 					}
-					vl.Field(i).Set(sv)
+					fieldv.Set(sv)
 				}
 			} else if _, ok := v.defaultValueMap[paramName]; ok {
+				if fieldv.Kind() == reflect.Ptr && fieldv.CanSet() {
+					//对空指针进行初始化，暂时用临时变量保存
+					fieldv.Set(reflect.New(fieldv.Type().Elem()))
+					fieldv = fieldv.Elem()
+				}
 				switch v.typeMap[paramName] {
 				case reflect.Int:
-					vl.Field(i).SetInt(int64(v.defaultValueMap[paramName].(int)))
+					fieldv.SetInt(int64(v.defaultValueMap[paramName].(int)))
 				case reflect.Int64:
-					vl.Field(i).SetInt(v.defaultValueMap[paramName].(int64))
+					fieldv.SetInt(v.defaultValueMap[paramName].(int64))
 				case reflect.Bool:
-					vl.Field(i).SetBool(v.defaultValueMap[paramName].(bool))
+					fieldv.SetBool(v.defaultValueMap[paramName].(bool))
 				case reflect.String:
-					vl.Field(i).SetString(v.defaultValueMap[paramName].(string))
+					fieldv.SetString(v.defaultValueMap[paramName].(string))
 				case reflect.Slice:
-					sv := reflect.MakeSlice(vl.Field(i).Type(), 0, 0)
+					sv := reflect.MakeSlice(fieldv.Type(), 0, 0)
 					vInterface := v.defaultValueMap[paramName].([]interface{})
 					for _, sliceV := range vInterface {
 						sv = reflect.Append(sv, reflect.ValueOf(sliceV))
 					}
-					vl.Field(i).Set(sv)
+					fieldv.Set(sv)
 				}
 			}
 		}
